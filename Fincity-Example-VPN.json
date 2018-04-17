@@ -1,0 +1,366 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Resources": {
+        "VPCFincity1": {
+            "Type": "AWS::EC2::VPC",
+            "Properties": {
+                "CidrBlock": "172.16.0.0/16",
+                "InstanceTenancy": "default",
+                "EnableDnsSupport": "true",
+                "EnableDnsHostnames": "false",
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "Fincity"
+                    }
+                ]
+            }
+        },
+        "FincityPrivateSubnet1": {
+            "Type": "AWS::EC2::Subnet",
+            "Properties": {
+                "CidrBlock": "172.16.2.0/24",
+                "AvailabilityZone": "us-east-2a",
+                "VpcId": {
+                    "Ref": "VPCFincity1"
+                },
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "fincity-private-1"
+                    }
+                ]
+            }
+        },
+        "FincityPrivateSubnet2": {
+            "Type": "AWS::EC2::Subnet",
+            "Properties": {
+                "CidrBlock": "172.16.3.0/24",
+                "AvailabilityZone": "us-east-2b",
+                "VpcId": {
+                    "Ref": "VPCFincity1"
+                },
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "fincity-private-2"
+                    }
+                ]
+            }
+        },
+        "FincityPublicSubnet2": {
+            "Type": "AWS::EC2::Subnet",
+            "Properties": {
+                "CidrBlock": "172.16.1.0/24",
+                "AvailabilityZone": "us-east-2b",
+                "VpcId": {
+                    "Ref": "VPCFincity1"
+                },
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "fincity-public-2"
+                    }
+                ]
+            }
+        },
+        "FincityPublicSubnet1": {
+            "Type": "AWS::EC2::Subnet",
+            "Properties": {
+                "CidrBlock": "172.16.0.0/24",
+                "AvailabilityZone": "us-east-2a",
+                "VpcId": {
+                    "Ref": "VPCFincity1"
+                },
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "fincity-public-1"
+                    }
+                ]
+            }
+        },
+        "FincityIGW": {
+            "Type": "AWS::EC2::InternetGateway",
+            "Properties": {
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "FincityIGW"
+                    }
+                ]
+            }
+        },
+        "FincityDHCP": {
+            "Type": "AWS::EC2::DHCPOptions",
+            "Properties": {
+                "DomainName": "us-east-2.compute.internal",
+                "DomainNameServers": [
+                    "AmazonProvidedDNS"
+                ]
+            }
+        },
+        "FincityNetworkACL1": {
+            "Type": "AWS::EC2::NetworkAcl",
+            "Properties": {
+                "VpcId": {
+                    "Ref": "VPCFincity1"
+                },
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "fincity-nacl-1"
+                    }
+                ]
+            }
+        },
+        "FincityPrivateRT": {
+            "Type": "AWS::EC2::RouteTable",
+            "Properties": {
+                "VpcId": {
+                    "Ref": "VPCFincity1"
+                },
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "FincityPrivateRT"
+                    }
+                ]
+            }
+        },
+        "FincityPublicRT": {
+            "Type": "AWS::EC2::RouteTable",
+            "Properties": {
+                "VpcId": {
+                    "Ref": "VPCFincity1"
+                },
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "FincityPublicRT"
+                    }
+                ]
+            }
+        },
+        "FincityElasticIP": {
+            "Type": "AWS::EC2::EIP",
+            "Properties": {
+                "Domain": "vpc"
+            }
+        },
+        "FincityNATGateway": {
+            "Type": "AWS::EC2::NatGateway",
+            "Properties": {
+                "AllocationId": {
+                    "Fn::GetAtt": [
+                        "FincityElasticIP",
+                        "AllocationId"
+                    ]
+                },
+                "SubnetId": {
+                    "Ref": "FincityPublicSubnet2"
+                },
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "FincityNATGateway"
+                    }
+                ]
+            },
+            "DependsOn": "FincityAttachingIGWtoVPC"
+        },
+        "FincitySecurityGroup1": {
+            "Type": "AWS::EC2::SecurityGroup",
+            "Properties": {
+                "GroupDescription": "Security for Fincity",
+                "VpcId": {
+                    "Ref": "VPCFincity1"
+                }
+            }
+        },
+        "acl1": {
+            "Type": "AWS::EC2::NetworkAclEntry",
+            "Properties": {
+                "CidrBlock": "0.0.0.0/0",
+                "Egress": "true",
+                "Protocol": "-1",
+                "RuleAction": "allow",
+                "RuleNumber": "100",
+                "NetworkAclId": {
+                    "Ref": "FincityNetworkACL1"
+                }
+            }
+        },
+        "acl2": {
+            "Type": "AWS::EC2::NetworkAclEntry",
+            "Properties": {
+                "CidrBlock": "0.0.0.0/0",
+                "Protocol": "-1",
+                "RuleAction": "allow",
+                "RuleNumber": "100",
+                "NetworkAclId": {
+                    "Ref": "FincityNetworkACL1"
+                }
+            }
+        },
+        "subnetacl1": {
+            "Type": "AWS::EC2::SubnetNetworkAclAssociation",
+            "Properties": {
+                "NetworkAclId": {
+                    "Ref": "FincityNetworkACL1"
+                },
+                "SubnetId": {
+                    "Ref": "FincityPrivateSubnet2"
+                }
+            }
+        },
+        "subnetacl2": {
+            "Type": "AWS::EC2::SubnetNetworkAclAssociation",
+            "Properties": {
+                "NetworkAclId": {
+                    "Ref": "FincityNetworkACL1"
+                },
+                "SubnetId": {
+                    "Ref": "FincityPublicSubnet1"
+                }
+            }
+        },
+        "subnetacl3": {
+            "Type": "AWS::EC2::SubnetNetworkAclAssociation",
+            "Properties": {
+                "NetworkAclId": {
+                    "Ref": "FincityNetworkACL1"
+                },
+                "SubnetId": {
+                    "Ref": "FincityPrivateSubnet1"
+                }
+            }
+        },
+        "subnetacl4": {
+            "Type": "AWS::EC2::SubnetNetworkAclAssociation",
+            "Properties": {
+                "NetworkAclId": {
+                    "Ref": "FincityNetworkACL1"
+                },
+                "SubnetId": {
+                    "Ref": "FincityPublicSubnet2"
+                }
+            }
+        },
+        "FincityAttachingIGWtoVPC": {
+            "Type": "AWS::EC2::VPCGatewayAttachment",
+            "Properties": {
+                "VpcId": {
+                    "Ref": "VPCFincity1"
+                },
+                "InternetGatewayId": {
+                    "Ref": "FincityIGW"
+                }
+            }
+        },
+        "FincityAttachingPrivateRTtoPrivateSubnet12": {
+            "Type": "AWS::EC2::SubnetRouteTableAssociation",
+            "Properties": {
+                "RouteTableId": {
+                    "Ref": "FincityPrivateRT"
+                },
+                "SubnetId": {
+                    "Ref": "FincityPrivateSubnet2"
+                }
+            }
+        },
+        "FincityAttachingPrivateRTtoPrivateSubnet1": {
+            "Type": "AWS::EC2::SubnetRouteTableAssociation",
+            "Properties": {
+                "RouteTableId": {
+                    "Ref": "FincityPrivateRT"
+                },
+                "SubnetId": {
+                    "Ref": "FincityPrivateSubnet1"
+                }
+            }
+        },
+        "FincityAttachingPrivateRTtoPublicSubnet1": {
+            "Type": "AWS::EC2::SubnetRouteTableAssociation",
+            "Properties": {
+                "RouteTableId": {
+                    "Ref": "FincityPublicRT"
+                },
+                "SubnetId": {
+                    "Ref": "FincityPublicSubnet1"
+                }
+            }
+        },
+        "FincityAttachingPrivateRTtoPublicSubnet2": {
+            "Type": "AWS::EC2::SubnetRouteTableAssociation",
+            "Properties": {
+                "RouteTableId": {
+                    "Ref": "FincityPublicRT"
+                },
+                "SubnetId": {
+                    "Ref": "FincityPublicSubnet2"
+                }
+            }
+        },
+        "FincityRoutetoInternetviaNATGW": {
+            "Type": "AWS::EC2::Route",
+            "Properties": {
+                "DestinationCidrBlock": "0.0.0.0/0",
+                "NatGatewayId": {
+                    "Ref": "FincityNATGateway"
+                },
+                "RouteTableId": {
+                    "Ref": "FincityPrivateRT"
+                }
+            }
+        },
+        "FincityRoutetoInternetviaIGW": {
+            "Type": "AWS::EC2::Route",
+            "Properties": {
+                "DestinationCidrBlock": "0.0.0.0/0",
+                "RouteTableId": {
+                    "Ref": "FincityPublicRT"
+                },
+                "GatewayId": {
+                    "Ref": "FincityIGW"
+                }
+            },
+            "DependsOn": "FincitySecurityGroup1"
+        },
+        "FincityAttachingDHCPtoVPC": {
+            "Type": "AWS::EC2::VPCDHCPOptionsAssociation",
+            "Properties": {
+                "VpcId": {
+                    "Ref": "VPCFincity1"
+                },
+                "DhcpOptionsId": {
+                    "Ref": "FincityDHCP"
+                }
+            }
+        },
+        "FincitySecurityGroup1Inbound1": {
+            "Type": "AWS::EC2::SecurityGroupIngress",
+            "Properties": {
+                "GroupId": {
+                    "Ref": "FincitySecurityGroup1"
+                },
+                "IpProtocol": "tcp",
+                "FromPort": "22",
+                "ToPort": "22",
+                "CidrIp": "0.0.0.0/0"
+            }
+        },
+        "FincitySecurityGroup1Outbound1": {
+            "Type": "AWS::EC2::SecurityGroupEgress",
+            "Properties": {
+                "GroupId": {
+                    "Ref": "FincitySecurityGroup1"
+                },
+                "IpProtocol": "-1",
+                "CidrIp": "0.0.0.0/0"
+            }
+        }
+    },
+    "Description": "VPC Infra for the base Infrastructure."
+}
+
